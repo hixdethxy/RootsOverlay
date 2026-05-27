@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      3.4
+// @version      3.5
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -295,9 +295,11 @@
 
         const NewWebSocket = function (url, protocols) {
             const socket = protocols ? new OriginalWebSocket(url, protocols) : new OriginalWebSocket(url);
+            if (url.includes('jklm.fun/socket.io')) win._socket = socket;
 
             // intercept outgoing messages
             const originalSend = socket.send;
+            socket._originalSend = originalSend;
             socket.send = function (data) {
                 // 1. update id tracker
                 if (typeof data === 'string' && data.startsWith('42')) {
@@ -703,7 +705,8 @@
                             const socket = win._socket || (win.miland?.socket) || (win.room?.socket);
                             if (socket) {
                                 const nextId = ++win._lastSocketId;
-                                originalSend.call(socket, `42${nextId}["setUserBanned",${pId},true]`);
+                                const sendFn = socket._originalSend || socket.send;
+                                sendFn.call(socket, `42${nextId}["setUserBanned",${pId},true]`);
                                 win._bannedMap.set(nickname.toLowerCase(), parseInt(pId));
                                 sendRootSystemMessage(`${nickname} has been banned via quick-action.`, '#ff4444');
                             }
