@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      4.5
+// @version      4.6
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -268,18 +268,6 @@
 
         const OriginalWebSocket = win.WebSocket;
 
-        // shadow socket for echo
-        const initShadowSocket = () => {
-            if (win._shadowSocket) return;
-            try {
-                win._shadowSocket = new OriginalWebSocket('wss://echo.websocket.org');
-                win._shadowSocket.binaryType = 'arraybuffer';
-            } catch (e) {
-                console.log("root overlay: shadow socket failed");
-            }
-        };
-        initShadowSocket();
-
         const NewWebSocket = function (url, protocols) {
             const socket = protocols ? new OriginalWebSocket(url, protocols) : new OriginalWebSocket(url);
 
@@ -336,13 +324,6 @@
 
                 const VALID_COMMANDS = ['help', 'ban', 'unban'];
                 if (!VALID_COMMANDS.includes(cmd)) return originalSend.apply(this, arguments);
-
-                // send binary to shadow socket
-                if (win._shadowSocket && win._shadowSocket.readyState === WebSocket.OPEN) {
-                    win._shadowSocket.send(new TextEncoder().encode(cleanMsg));
-                } else {
-                    initShadowSocket();
-                }
 
                 if (cmd === 'help') {
                     const helpText = `
