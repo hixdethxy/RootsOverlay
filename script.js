@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      3.8
+// @version      3.9
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -411,23 +411,6 @@
                 }
             };
 
-            const isUserModerator = (pId) => {
-                const searchContexts = [document];
-                document.querySelectorAll('iframe').forEach(f => {
-                    try { if (f.contentDocument) searchContexts.push(f.contentDocument); } catch (e) { }
-                });
-
-                for (const ctx of searchContexts) {
-                    const winCtx = ctx.defaultView || window;
-                    const roomUsers = winCtx.miland?.room?.users || winCtx.room?.users;
-                    if (roomUsers && roomUsers[pId]) {
-                        return roomUsers[pId].roles?.includes('moderator') || roomUsers[pId].isModerator === true;
-                    }
-                }
-                return false;
-            };
-
-
             socket.addEventListener('message', (event) => {
                 const rawData = event.data;
                 if (typeof rawData === 'string') {
@@ -574,6 +557,22 @@
         return undefined;
     };
 
+    const isUserModerator = (pId) => {
+        const searchContexts = [document];
+        document.querySelectorAll('iframe').forEach(f => {
+            try { if (f.contentDocument) searchContexts.push(f.contentDocument); } catch (e) { }
+        });
+
+        for (const ctx of searchContexts) {
+            const winCtx = ctx.defaultView || window;
+            const roomUsers = winCtx.miland?.room?.users || winCtx.room?.users;
+            if (roomUsers && roomUsers[pId]) {
+                return roomUsers[pId].roles?.includes('moderator') || roomUsers[pId].isModerator === true;
+            }
+        }
+        return false;
+    };
+
     const checkModStatus = () => {
         const win = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
 
@@ -699,14 +698,29 @@
                         e.preventDefault();
                         e.stopPropagation();
                         const nickname = author.textContent.trim();
+                        const targetId = parseInt(pId);
+
                         if (confirm(`Do you want to ban ${nickname}?`)) {
                             const socket = win._socket || (win.miland?.socket) || (win.room?.socket);
-                            if (socket) {
-                                const nextId = ++win._lastSocketId;
+                            console.log("Root Overlay: Attempting quick-ban", { nickname, targetId, socketFound: !!socket, isLeader: win._isLeader });
+
+                            if (socket && !isNaN(targetId)) {
                                 const sendFn = socket._originalSend || socket.send;
-                                sendFn.call(socket, `42${nextId}["setUserBanned",${pId},true]`);
-                                win._bannedMap.set(nickname.toLowerCase(), parseInt(pId));
+
+                                // Leader logic: if target is moderator, remove role first
+                                const isTargetMod = isUserModerator(targetId);
+                                if (win._isLeader && isTargetMod) {
+                                    console.log("Root Overlay: Target is mod, removing role first");
+                                    sendFn.call(socket, `42${++win._lastSocketId}["setModerator",${targetId},false]`);
+                                    sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`);
+                                } else {
+                                    sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`);
+                                }
+
+                                win._bannedMap.set(nickname.toLowerCase(), targetId);
                                 sendRootSystemMessage(`${nickname} has been banned via quick-action.`, '#ff4444');
+                            } else {
+                                sendRootSystemMessage(`Could not find active game connection or PeerID. Check console (F12).`, '#ffaa00');
                             }
                         }
                     };
