@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      3.7
+// @version      3.8
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -220,7 +220,7 @@
         msg.innerHTML = `
             <span class="time" style="color: #888; margin-right: 5px;">${timeStr}</span>
             <span class="broadcast">
-                <span class="author" style="color: #ffaa00 !important; font-weight: bold;">Root</span>:
+                <span class="author" style="color: #6366f1 !important; font-weight: bold; text-shadow: 0 0 2px rgba(0,0,0,0.5);">Root</span>:
                 <span class="text" style="color: ${textColor} !important; font-weight: bold;">${isHTML ? '' : text}</span>
                 ${isHTML ? text : ''}
             </span>
