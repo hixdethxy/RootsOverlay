@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      5.1
+// @version      5.2
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -1295,10 +1295,11 @@
 
                             <div style="margin-top: 20px; padding: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
                                 <div style="font-weight: bold; color: #fff; font-size: 13px; margin-bottom: 8px;">Suggestion / Bug :</div>
-                                  <div style="display: flex; flex-direction: column; gap: 5px;">
-                                      <a href="https://discord.com/users/1147633255345037352" target="_blank" style="color: #5865F2; text-decoration: none; font-size: 12px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Root's Discord</a>
-                                  </div>
-                             </div>
+                                   <div style="display: flex; flex-direction: column; gap: 5px;">
+                                       <a href="https://discord.com/users/1147633255345037352" target="_blank" style="color: #5865F2; text-decoration: none; font-size: 12px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Root's Discord</a>
+                                       <a href="https://discord.gg/D95sGYRPrU" target="_blank" style="color: #5865F2; text-decoration: none; font-size: 12px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Root's Discord Server</a>
+                                   </div>
+                              </div>
                         </div>
                     </div>
                 `;
