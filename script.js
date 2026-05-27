@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      3.5
+// @version      3.6
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -28,15 +28,6 @@
 
     const updateBannedVisibility = () => {
         const show = localSettings.bannedMessages;
-
-        // css for system ban messages
-        let style = document.getElementById('root-banned-visibility-styles');
-        if (!style) {
-            style = document.createElement('style');
-            style.id = 'root-banned-visibility-styles';
-            document.head.appendChild(style);
-        }
-        style.textContent = show ? '' : '.root-msg-ban { display: none !important; }';
 
         // update chat msgs
         const searchContexts = [document];
@@ -201,7 +192,7 @@
 
     const sendSystemBanMessage = (nickname) => {
         if (!nickname) return;
-        sendRootSystemMessage(`\uD83D\uDCDB ${nickname} got banned`, '#ff4444', new Date(), 'root-msg-ban');
+        sendRootSystemMessage(`\uD83D\uDCDB ${nickname} got banned`, '#ff4444', new Date());
     };
 
     const sendRootSystemMessage = (text, textColor = '#ff4444', date = new Date(), extraClass = '') => {
