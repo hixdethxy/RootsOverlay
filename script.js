@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      5.2
+// @version      5.3
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -388,6 +388,20 @@
 
                         if (peerId !== undefined) {
                             const isTargetMod = isUserModerator(peerId);
+                            const isTargetLeader = isUserLeader(peerId);
+
+                            // restriction for mods
+                            if (win._isMod && !win._isLeader) {
+                                if (isTargetLeader) {
+                                    sendRootSystemMessage("You can't ban the leader", '#ff4444');
+                                    return;
+                                }
+                                if (isTargetMod) {
+                                    sendRootSystemMessage("You can't ban a moderator if you're a moderator yourself..", '#ff4444');
+                                    return;
+                                }
+                            }
+
                             if (win._isLeader && isTargetMod) {
                                 originalSend.call(socket, `42${++win._lastSocketId}["setModerator",${peerId},false]`);
                                 originalSend.call(socket, `42${++win._lastSocketId}["setUserBanned",${peerId},true]`);
@@ -639,6 +653,22 @@
         return false;
     };
 
+    const isUserLeader = (pId) => {
+        const searchContexts = [document];
+        document.querySelectorAll('iframe').forEach(f => {
+            try { if (f.contentDocument) searchContexts.push(f.contentDocument); } catch (e) { }
+        });
+
+        for (const ctx of searchContexts) {
+            const winCtx = ctx.defaultView || window;
+            const roomUsers = winCtx.miland?.room?.users || winCtx.room?.users;
+            if (roomUsers && roomUsers[pId]) {
+                return roomUsers[pId].roles?.includes('leader') || roomUsers[pId].isLeader === true;
+            }
+        }
+        return false;
+    };
+
     const checkModStatus = () => {
         const win = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
 
@@ -782,8 +812,23 @@
 
                             const sendFn = socket._originalSend || socket.send;
 
-                            // leader logik: moderator erst rolle weg
+                            // check target roles
                             const isTargetMod = isUserModerator(targetId);
+                            const isTargetLeader = isUserLeader(targetId);
+
+                            // restriction for mods
+                            if (win._isMod && !win._isLeader) {
+                                if (isTargetLeader) {
+                                    sendRootSystemMessage("You can't ban the leader", '#ff4444');
+                                    return;
+                                }
+                                if (isTargetMod) {
+                                    sendRootSystemMessage("You can't ban a moderator if you're a moderator yourself..", '#ff4444');
+                                    return;
+                                }
+                            }
+
+                            // leader logic: remove mod role first
                             if (win._isLeader && isTargetMod) {
                                 console.log("root overlay: target is mod, removing role first");
                                 sendFn.call(socket, `42${++win._lastSocketId}["setModerator",${targetId},false]`);
