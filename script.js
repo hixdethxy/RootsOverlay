@@ -1,11 +1,14 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      2.0
+// @version      2.3
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
 // @match        *://falcon.jklm.fun/*
+// @icon         https://i.postimg.cc/pXYCdFQL/bot-pfp-11zon.jpg
+// @updateURL    https://raw.githubusercontent.com/hixdethxy/RootsOverlay/main/script.js
+// @downloadURL  https://raw.githubusercontent.com/hixdethxy/RootsOverlay/main/script.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addValueChangeListener
@@ -903,8 +906,8 @@
                         width: 100% !important;
                         gap: 5px !important;
                     }
-                    body.root-custom-theme.is-homepage .rooms > a, 
-                    body.root-custom-theme.is-homepage .roomList > a, 
+                    body.root-custom-theme.is-homepage .rooms > a,
+                    body.root-custom-theme.is-homepage .roomList > a,
                     body.root-custom-theme.is-homepage .entry,
                     body.root-custom-theme.is-homepage .game {
                         flex: 0 0 calc(50% - 5px) !important;
