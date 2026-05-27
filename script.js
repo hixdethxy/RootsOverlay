@@ -1,13 +1,11 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      1.9
+// @version      2.0
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
 // @match        *://falcon.jklm.fun/*
-// @updateURL    https://raw.githubusercontent.com/hixdethxy/RootsOverlay/main/script.js
-// @downloadURL  https://raw.githubusercontent.com/hixdethxy/RootsOverlay/main/script.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addValueChangeListener
@@ -728,7 +726,7 @@
         GM_addValueChangeListener('root_space_to_hyphen_game', broadcastSettings);
 
         const initUI = () => {
-            // standard responsive viewport for mobile..
+            // Standard responsive viewport for mobile
             let viewport = document.querySelector('meta[name="viewport"]');
             if (viewport) {
                 viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
@@ -888,52 +886,57 @@
                         overflow-x: hidden !important;
                     }
                     .page {
-                        width: 95% !important;
+                        width: 100% !important;
                         min-width: 0 !important;
-                        margin: 10px auto !important;
-                        padding: 10px !important;
+                        margin: 0 !important;
+                        padding: 5px !important;
+                        box-sizing: border-box !important;
                     }
-                    /* 2 Rooms per row on mobile */
-                    body.root-custom-theme.is-homepage .rooms > a,
-                    body.root-custom-theme.is-homepage .roomList > a,
-                    body.root-custom-theme.is-homepage .entry {
+                    /* Homepage: Force 2 columns */
+                    body.root-custom-theme.is-homepage .rooms,
+                    body.root-custom-theme.is-homepage .roomList,
+                    body.root-custom-theme.is-homepage .games {
+                        display: flex !important;
+                        flex-wrap: wrap !important;
+                        flex-direction: row !important;
+                        justify-content: space-between !important;
+                        width: 100% !important;
+                        gap: 5px !important;
+                    }
+                    body.root-custom-theme.is-homepage .rooms > a, 
+                    body.root-custom-theme.is-homepage .roomList > a, 
+                    body.root-custom-theme.is-homepage .entry,
+                    body.root-custom-theme.is-homepage .game {
                         flex: 0 0 calc(50% - 5px) !important;
                         width: calc(50% - 5px) !important;
                         max-width: calc(50% - 5px) !important;
-                        height: 80px !important; /* Smaller height */
-                        padding: 8px 35px 8px 10px !important;
-                        font-size: 12px !important;
-                    }
-                    body.root-custom-theme.is-homepage .entry .code {
-                        width: 40px !important;
+                        height: 70px !important;
+                        margin: 0 0 5px 0 !important;
+                        padding: 5px 30px 5px 8px !important;
                         font-size: 11px !important;
+                        box-sizing: border-box !important;
+                        display: flex !important;
+                        align-items: center !important;
                     }
-                    /* Scale down Sidebar buttons */
+                    body.root-custom-theme.is-homepage .entry .code,
+                    body.root-custom-theme.is-homepage .game .code {
+                        position: absolute !important;
+                        bottom: 5px !important;
+                        right: 5px !important;
+                        width: auto !important;
+                        font-size: 10px !important;
+                    }
+                    /* Smaller Sidebar buttons for mobile */
                     .custom-circle-btn {
-                        padding: 0.3em !important;
-                        font-size: 14px !important;
-                    }
-                    /* Fix room layout for mobile */
-                    .room {
-                        flex-direction: column !important;
-                    }
-                    .sidebar {
-                        width: 100% !important;
-                        height: auto !important;
-                        order: 2 !important;
-                    }
-                    .main {
-                        width: 100% !important;
-                        order: 1 !important;
-                    }
-                    /* Space-Hyphen Button Mobile Fix */
-                    #root-space-hyphen-btn {
-                        font-size: 14px !important;
+                        padding: 5px !important;
+                        font-size: 12px !important;
+                        width: 32px !important;
                         height: 32px !important;
-                        line-height: 28px !important;
-                        padding: 0 15px !important;
-                        top: -10px !important; /* Less push up on mobile */
                     }
+                    /* Room layout fixes */
+                    .room { flex-direction: column !important; }
+                    .sidebar { width: 100% !important; height: auto !important; order: 2 !important; }
+                    .main { width: 100% !important; order: 1 !important; }
                 }
             `;
             document.head.appendChild(style);
@@ -1096,22 +1099,22 @@
                 };
             }
 
-            // -- Ensure button is ONLY in the bottom container --
+            // Ensure button is ONLY in the bottom container
             if (btn.parentElement && btn.parentElement !== bottom) {
                 btn.remove();
             }
 
-
+            // Prepend to the bottom container (left side) if not already the first child
             if (bottom.firstChild !== btn) {
                 bottom.prepend(btn);
             }
 
             if (localSettings.game) {
-                btn.style.background = '#ff4444'; // red for ON
+                btn.style.background = '#ff4444'; // Red for ON
                 btn.style.boxShadow = 'inset 0 -4px 0 rgba(0,0,0,0.2)';
                 btn.style.opacity = '1';
             } else {
-                btn.style.background = '#1fb141'; // green for OFF
+                btn.style.background = '#1fb141'; // Green for OFF
                 btn.style.boxShadow = 'inset 0 -4px 0 rgba(0,0,0,0.2)';
                 btn.style.opacity = '1';
             }
