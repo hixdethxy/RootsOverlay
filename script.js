@@ -1295,13 +1295,10 @@
 
                             <div style="margin-top: 20px; padding: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
                                 <div style="font-weight: bold; color: #fff; font-size: 13px; margin-bottom: 8px;">Suggestion / Bug :</div>
-                                 <div style="display: flex; flex-direction: column; gap: 5px;">
-                                     <a href="https://discord.com/users/1147633255345037352" target="_blank" style="color: #5865F2; text-decoration: none; font-size: 12px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Root's Discord (Creator of this Overlay)</a>
-                                     <a href="https://discord.com/users/181467406856749056" target="_blank" style="color: #5865F2; text-decoration: none; font-size: 12px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Macadelic's Discord (JKLM Developer)</a>
-                                    <a href="https://discord.gg/jklm" target="_blank" style="color: #5865F2; text-decoration: none; font-size: 12px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Official JKLM Discord Server</a>
-                                    <a href="https://github.com/hixdethxy/RootsOverlay" target="_blank" style="color: #ccc; text-decoration: none; font-size: 12px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">GitHub</a>
-                                </div>
-                            </div>
+                                  <div style="display: flex; flex-direction: column; gap: 5px;">
+                                      <a href="https://discord.com/users/1147633255345037352" target="_blank" style="color: #5865F2; text-decoration: none; font-size: 12px; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Root's Discord</a>
+                                  </div>
+                             </div>
                         </div>
                     </div>
                 `;
