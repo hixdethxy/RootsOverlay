@@ -3,11 +3,11 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.3
 // @description  root's overlay
-// @author       yum
+// @author       Root
 // @match        *://*.jklm.fun/*
 // @match        *://falcon.jklm.fun/*
-// @updateURL    https://raw.githubusercontent.com/hixdethxy/RootsOverlay/repo/main/script.js
-// @downloadURL  https://raw.githubusercontent.com/hixdethxy/RootsOverlay/repo/main/script.js
+// @updateURL    https://raw.githubusercontent.com/hixdethxy/RootsOverlay/blob/main/script.js
+// @downloadURL  https://raw.githubusercontent.com/hixdethxy/RootsOverlay/blob/main/script.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addValueChangeListener
