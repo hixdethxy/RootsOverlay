@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      1.3
 // @description  root's overlay
-// @author       Root
+// @author       yum
 // @match        *://*.jklm.fun/*
 // @match        *://falcon.jklm.fun/*
 // @updateURL    https://raw.githubusercontent.com/hixdethxy/RootsOverlay/repo/main/script.js
