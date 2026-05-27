@@ -1277,11 +1277,11 @@
             }
 
             if (!customPane) {
-                const customPane = document.createElement('div');
-                customPane.id = 'custom-circle-sidebar';
-                customPane.className = 'keyboard pane';
-                customPane.hidden = true;
-                customPane.innerHTML = `
+                const newPane = document.createElement('div');
+                newPane.id = 'custom-circle-sidebar';
+                newPane.className = 'keyboard pane';
+                newPane.hidden = true;
+                newPane.innerHTML = `
                     <div class="custom-sidebar-list">
                         <div style="display: flex; flex-direction: column; gap: 10px; width: 100%;">
                             <div id="kb-toggle-header" style="display: flex; align-items: center; background-color: rgba(255,255,255,0.06); padding: 8px 12px; border-radius: 6px; width: 100%; font-weight: bold; color: #aaa; cursor: pointer; transition: background 0.2s; font-size: 13px; box-sizing: border-box;">
@@ -1322,11 +1322,11 @@
                     </div>
                 `;
                 const settingsPane = sidebar.querySelector('.settings.pane');
-                sidebar.insertBefore(customPane, settingsPane || null);
+                sidebar.insertBefore(newPane, settingsPane || null);
 
-                const tGame = customPane.querySelector('#t-game');
-                const tChat = customPane.querySelector('#t-chat');
-                const tBanned = customPane.querySelector('#t-banned');
+                const tGame = newPane.querySelector('#t-game');
+                const tChat = newPane.querySelector('#t-chat');
+                const tBanned = newPane.querySelector('#t-banned');
                 try { if (tGame) { tGame.checked = !!GM_getValue('root_space_to_hyphen_game', false); } } catch (e) { }
                 try { if (tChat) { tChat.checked = !!GM_getValue('root_space_to_hyphen_chat', false); } } catch (e) { }
                 try { if (tBanned) { tBanned.checked = !!GM_getValue('root_show_banned_messages', false); } } catch (e) { }
@@ -1334,8 +1334,8 @@
                 if (tChat) tChat.addEventListener('change', (ev) => { const v = !!ev.target.checked; GM_setValue('root_space_to_hyphen_chat', v); localSettings.chat = v; broadcastSettings(); });
                 if (tBanned) tBanned.addEventListener('change', (ev) => { const v = !!ev.target.checked; GM_setValue('root_show_banned_messages', v); localSettings.bannedMessages = v; broadcastSettings(); });
 
-                const kbToggle = customPane.querySelector('#kb-toggle-header');
-                const kbField = customPane.querySelector('#kb-options-field');
+                const kbToggle = newPane.querySelector('#kb-toggle-header');
+                const kbField = newPane.querySelector('#kb-options-field');
                 if (kbToggle && kbField) {
                     kbToggle.addEventListener('mouseenter', () => { kbToggle.style.backgroundColor = 'rgba(255,255,255,0.1)'; });
                     kbToggle.addEventListener('mouseleave', () => { kbToggle.style.backgroundColor = 'rgba(255,255,255,0.06)'; });
@@ -1345,8 +1345,8 @@
                     });
                 }
 
-                const modToggle = customPane.querySelector('#mod-toggle-header');
-                const modField = customPane.querySelector('#mod-options-field');
+                const modToggle = newPane.querySelector('#mod-toggle-header');
+                const modField = newPane.querySelector('#mod-options-field');
                 if (modToggle && modField) {
                     modToggle.addEventListener('mouseenter', () => { modToggle.style.backgroundColor = 'rgba(255,255,255,0.1)'; });
                     modToggle.addEventListener('mouseleave', () => { modToggle.style.backgroundColor = 'rgba(255,255,255,0.06)'; });
