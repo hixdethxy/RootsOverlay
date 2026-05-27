@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      3.3
+// @version      3.4
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -616,10 +616,6 @@
                 win._isLeader = false;
             }
         }
-    };
-
-    const addOwnerBadge = () => {
-        // ... (existing code)
     };
 
     const updateUserInfo = () => {
