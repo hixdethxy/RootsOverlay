@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      4.1
+// @version      4.5
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -18,18 +18,18 @@
 (function () {
     'use strict';
 
-    // settings & sync
+    // settings and sync
     let localSettings = {
         chat: GM_getValue('root_space_to_hyphen_chat', false),
         game: GM_getValue('root_space_to_hyphen_game', false),
         bannedMessages: GM_getValue('root_show_banned_messages', false),
-        theme: GM_getValue('root_theme', 'custom') // 'custom' or 'normal'
+        theme: GM_getValue('root_theme', 'custom') // either custom or normal
     };
 
     const updateBannedVisibility = () => {
         const show = localSettings.bannedMessages;
 
-        // update chat msgs
+        // update chat messages
         const searchContexts = [document];
         document.querySelectorAll('iframe').forEach(f => {
             try { if (f.contentDocument) searchContexts.push(f.contentDocument); } catch (e) { }
@@ -155,7 +155,7 @@
         }
     }, true);
 
-    // chat & ban
+    // chat and ban stuff
     const addOwnerBadge = () => {
         const profile = document.querySelector('.userProfile.pane');
         if (!profile || profile.hidden) return;
@@ -163,7 +163,7 @@
         const auth = profile.querySelector('.auth');
         const existingOwnerBadge = profile.querySelector('.root-owner-badge');
 
-        // owner badge
+        // check if it's the owner
         const isOwner = auth && auth.textContent.trim().toLowerCase() === 'rootiqles on twitch';
         if (isOwner) {
             if (!existingOwnerBadge) {
@@ -200,7 +200,7 @@
         const log = document.querySelector('.chat .log .messages') || document.querySelector('.messages') || document.querySelector('.log');
 
         if (!log) {
-            // queue if log not ready
+            // add to queue if log is missing
             if (!win._rootMsgQueue) win._rootMsgQueue = [];
             win._rootMsgQueue.push({ text, textColor, time: date, extraClass });
             return;
@@ -214,7 +214,7 @@
 
         const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-        // help command
+        // check if it's html
         const isHTML = text.includes('<div') || text.includes('<span');
 
         msg.innerHTML = `
@@ -227,7 +227,7 @@
         `;
         log.appendChild(msg);
 
-        // scrollfix
+        // for proper scrolling
         setTimeout(() => {
             const scrollContainer = log.closest('.log') || log.parentElement;
             if (scrollContainer) {
@@ -250,36 +250,32 @@
         }
     }, 250);
 
-    // ws bypass
+    // websocket stuff
     const hookWebSockets = () => {
         const win = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
         if (win._wsHooked) return;
         win._wsHooked = true;
 
-        // init status to null
+        // status initially null
         win._isMod = null;
         win._isLeader = null;
 
-        // peer mapping
+        // where stuff is stored
         win._peerMap = new Map();
-        // ban cache
         win._bannedMap = new Map();
-        // overlay users
         win._overlayUsers = new Set();
-        // socket id tracker
         win._lastSocketId = 1000;
 
         const OriginalWebSocket = win.WebSocket;
 
-        // ws system
+        // shadow socket for echo
         const initShadowSocket = () => {
             if (win._shadowSocket) return;
-            // connect to echo
             try {
                 win._shadowSocket = new OriginalWebSocket('wss://echo.websocket.org');
                 win._shadowSocket.binaryType = 'arraybuffer';
             } catch (e) {
-                console.log("Root Overlay: Shadow Socket could not be initialized.");
+                console.log("root overlay: shadow socket failed");
             }
         };
         initShadowSocket();
@@ -287,31 +283,36 @@
         const NewWebSocket = function (url, protocols) {
             const socket = protocols ? new OriginalWebSocket(url, protocols) : new OriginalWebSocket(url);
 
-            if (url.includes('jklm.fun/socket.io')) {
+            // searching everywhere for the socket
+            if (url.includes('jklm.fun')) {
                 win._socket = socket;
                 try {
                     const topWin = (typeof unsafeWindow !== 'undefined') ? unsafeWindow.top : window.top;
-                    topWin._rootSocket = socket;
-                } catch (e) { }
+                    if (!topWin._rootSockets) topWin._rootSockets = new Set();
+                    topWin._rootSockets.add(socket);
+                    console.log("root overlay: game socket captured", url);
+                } catch (e) {
+                    console.log("root overlay: socket registration failed", e);
+                }
             }
 
-            // intercept outgoing messages
+            // catch messages
             const originalSend = socket.send;
             socket._originalSend = originalSend;
             socket.send = function (data) {
-                // 1. update id tracker
+                // updating id tracker
                 if (typeof data === 'string' && data.startsWith('42')) {
                     const idMatch = data.match(/^42(\d+)\[/);
                     if (idMatch) win._lastSocketId = Math.max(win._lastSocketId, parseInt(idMatch[1]));
                 } else if (typeof data === 'string' && data === '2') {
-                    // keep alive
+                    // don't need keep alives
                 } else if (data instanceof ArrayBuffer || data instanceof Uint8Array) {
-                    // binary message
+                    // binary data doesn't matter
                 } else {
                     return originalSend.apply(this, arguments);
                 }
 
-                // 2. parse payload
+                // read data
                 let payload;
                 try {
                     const jsonStart = data.indexOf('[');
@@ -321,7 +322,7 @@
                     return originalSend.apply(this, arguments);
                 }
 
-                // 3. handle commands
+                // check if it's a command
                 const isChat = payload[0] === 'chat';
                 if (!isChat) return originalSend.apply(this, arguments);
 
@@ -336,7 +337,7 @@
                 const VALID_COMMANDS = ['help', 'ban', 'unban'];
                 if (!VALID_COMMANDS.includes(cmd)) return originalSend.apply(this, arguments);
 
-                // binary msg for socket
+                // send binary to shadow socket
                 if (win._shadowSocket && win._shadowSocket.readyState === WebSocket.OPEN) {
                     win._shadowSocket.send(new TextEncoder().encode(cleanMsg));
                 } else {
@@ -372,7 +373,7 @@
                     const lowerArg = arg.toLowerCase();
                     const nextId = ++win._lastSocketId;
 
-                    // resolve peerid
+                    // find peerid
                     let peerId = /^\d+$/.test(arg) ? parseInt(arg) : findPeerIdByNickname(arg);
 
                     const isBannedLocally = win._bannedMap.has(lowerArg) || (peerId && Array.from(win._bannedMap.values()).includes(peerId));
@@ -507,15 +508,19 @@
         const win = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
         const topWin = win.top;
 
-        // 1. Check local win
-        if (win._socket && win._socket.readyState === WebSocket.OPEN) return win._socket;
-
-        // 2. Check top win
+        // 1. check top set (best way)
         try {
-            if (topWin._rootSocket && topWin._rootSocket.readyState === WebSocket.OPEN) return topWin._rootSocket;
+            if (topWin._rootSockets) {
+                for (const s of topWin._rootSockets) {
+                    if (s.readyState === WebSocket.OPEN) return s;
+                }
+            }
         } catch (e) { }
 
-        // 3. Scan all frames
+        // 2. check local
+        if (win._socket && win._socket.readyState === WebSocket.OPEN) return win._socket;
+
+        // 3. scan all frames
         const searchContexts = [document];
         try {
             document.querySelectorAll('iframe').forEach(f => {
@@ -531,17 +536,6 @@
             } catch (e) { }
         }
 
-        // 4. Try top's frames
-        try {
-            for (let i = 0; i < topWin.frames.length; i++) {
-                try {
-                    const w = topWin.frames[i];
-                    const s = w._socket || w.miland?.socket || w.room?.socket || w.miland?.room?.socket;
-                    if (s && s.readyState === WebSocket.OPEN) return s;
-                } catch (e) { }
-            }
-        } catch (e) { }
-
         return null;
     };
 
@@ -549,10 +543,10 @@
         const win = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
         const lowerInput = input.toLowerCase();
 
-        // nicknames
+        // check peer map
         if (win._peerMap.has(lowerInput)) return win._peerMap.get(lowerInput);
 
-        // scan docs
+        // search everything
         const searchContexts = [document];
         document.querySelectorAll('iframe').forEach(f => {
             try { if (f.contentDocument) searchContexts.push(f.contentDocument); } catch (e) { }
@@ -561,7 +555,7 @@
         for (const ctx of searchContexts) {
             const winCtx = ctx.defaultView || window;
 
-            // scan jklm objects
+            // check jklm objects
             const roomUsers = winCtx.miland?.room?.users || winCtx.room?.users;
             if (roomUsers) {
                 const u = Object.values(roomUsers).find(user => {
@@ -579,7 +573,7 @@
                 }
             }
 
-            // scan chat for peerid
+            // look through chat log
             const entries = ctx.querySelectorAll('.chat .log .entry, .messages .entry, .chat .messages .entry');
             for (const entry of entries) {
                 const nickEl = entry.querySelector('.nickname, .name');
@@ -593,7 +587,7 @@
                 }
             }
 
-            // scan for nick
+            // check attributes
             const byAttr = ctx.querySelector(`[data-nickname="${input}" i][data-peer-id], [data-name="${input}" i][data-peer-id], [data-nickname="${lowerInput}" i][data-peer-id]`);
             if (byAttr) {
                 const id = parseInt(byAttr.dataset.peerId || byAttr.getAttribute('data-peer-id'));
@@ -625,7 +619,7 @@
     const checkModStatus = () => {
         const win = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
 
-        // mod check
+        // check mod status
         const modBadge = document.querySelector('.mainBadge[title*="You are" i][title*="Moderator" i]');
         const hasModRole = !!modBadge;
 
@@ -645,7 +639,7 @@
             }
         }
 
-        // leader check
+        // check leader status
         const leaderBadge = document.querySelector('.mainBadge[title*="You are" i][title*="leader" i]');
         const hasLeaderRole = !!leaderBadge;
 
@@ -713,7 +707,7 @@
         const processNode = (node) => {
             if (node.nodeType !== 1) return;
 
-            // badge logic
+            // badge logik
             const author = node.querySelector('.author') || (node.classList.contains('author') ? node : null);
             if (author) {
                 const entry = author.closest('.entry') || node.closest('.entry');
@@ -737,7 +731,7 @@
                     author.prepend(badge);
                 }
 
-                // Ban Icon
+                // ban icon
                 if (pId && !author.querySelector('.root-ban-icon')) {
                     const banIcon = document.createElement('span');
                     banIcon.className = 'root-ban-icon';
@@ -752,7 +746,7 @@
                         if (confirm(`Do you want to ban ${nickname}?`)) {
                             const socket = findSocket();
 
-                            console.log("Root Overlay: Attempting quick-ban", { nickname, targetId, socketFound: !!socket, isLeader: win._isLeader });
+                            console.log("root overlay: attempting quick-ban", { nickname, targetId, socketFound: !!socket, isLeader: win._isLeader });
 
                             if (!socket) {
                                 sendRootSystemMessage(`Could not find active game connection. Try refreshing the page.`, '#ffaa00');
@@ -765,10 +759,10 @@
 
                             const sendFn = socket._originalSend || socket.send;
 
-                            // Leader logic: if target is moderator, remove role first
+                            // leader logik: moderator erst rolle weg
                             const isTargetMod = isUserModerator(targetId);
                             if (win._isLeader && isTargetMod) {
-                                console.log("Root Overlay: Target is mod, removing role first");
+                                console.log("root overlay: target is mod, removing role first");
                                 sendFn.call(socket, `42${++win._lastSocketId}["setModerator",${targetId},false]`);
                                 sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`);
                             } else {
@@ -776,7 +770,6 @@
                             }
 
                             win._bannedMap.set(nickname.toLowerCase(), targetId);
-                            sendRootSystemMessage(`${nickname} has been banned via quick-action.`, '#ff4444');
                         }
                     };
                     author.append(banIcon);
@@ -797,14 +790,14 @@
             });
         });
 
-        // scan existing msgs
+        // scan messages
         log.querySelectorAll('.entry, .author').forEach(processNode);
 
         observer.observe(log, { childList: true, subtree: true });
         log.dataset.modFallbackActive = "true";
     };
 
-    // anti delete
+    // anti delete stuff
     const initAntiDelete = () => {
         if (isHomepage) return;
         const logContainer = document.querySelector('.chat .log .messages') || document.querySelector('.messages') || document.querySelector('.log');
@@ -822,7 +815,7 @@
             textSpan.classList.add('root-msg-deleted');
             textSpan.classList.remove('deleted');
 
-            // init status
+            // check status
             if (localSettings.bannedMessages) {
                 textSpan.textContent = `[Deleted]: ${textSpan.dataset.originalText || ''}`;
                 textSpan.style.color = "#ff6b6b";
@@ -873,7 +866,7 @@
     hookWebSockets();
     updateBannedVisibility();
 
-    // ui logic
+    // ui stuff
     if (isJklm) {
         const broadcastSettings = () => {
             const msg = { type: 'ROOT_SETTINGS_UPDATE', settings: localSettings };
@@ -883,7 +876,7 @@
         GM_addValueChangeListener('root_space_to_hyphen_game', broadcastSettings);
 
         const initUI = () => {
-            // standard responsive viewport for mobile..
+            // viewport for mobile
             let viewport = document.querySelector('meta[name="viewport"]');
             if (viewport) {
                 viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
@@ -911,13 +904,13 @@
                 .keyboard.pane { display: flex !important; flex-direction: column !important; width: 100% !important; height: 100% !important; background: inherit !important; color: inherit !important; padding: 8px 12px !important; box-sizing: border-box !important; overflow-y: auto !important; scrollbar-width: thin !important; scrollbar-color: rgba(255, 255, 255, 0.1) rgba(0, 0, 0, 0.05) !important; }
                 .keyboard.pane[hidden] { display: none !important; }
 
-                /* global scrollbar adjustment */
+                // scrollbars
                 body.root-custom-theme .darkscrollbar, body.root-custom-theme .darkScrollbar, body.root-custom-theme * {
                     scrollbar-width: thin !important;
                     scrollbar-color: rgba(255, 255, 255, 0.1) rgba(0, 0, 0, 0.05) !important;
                 }
 
-                /* homepage styles */
+                // homepage designs
                 body.root-custom-theme.is-homepage, body.root-custom-theme.is-homepage .darkscrollbar, body.root-custom-theme.is-homepage html { background-color: #778899 !important; background-image: none !important; }
                 body.root-custom-theme.is-homepage .setup, body.root-custom-theme.is-homepage .top, body.root-custom-theme.is-homepage .logo, body.root-custom-theme.is-homepage a.logo { background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%) !important; color: white !important; }
                 body.root-custom-theme.is-homepage .page, body.root-custom-theme.is-homepage .publicRooms.section { background-color: #94a3b8 !important; border-radius: 16px !important; border: 1px solid #64748b !important; }
@@ -961,7 +954,7 @@
                 .custom-sidebar-label { display: block !important; cursor: pointer !important; font-weight: bold !important; padding: 8px 0 !important; color: #EEEEEE !important; }
                 .custom-sidebar-fieldset.open .custom-sidebar-content { display: flex !important; }
 
-                /* New list-style items to match screenshot */
+                // sidebar list
                 .custom-sidebar-list { display: flex !important; flex-direction: column !important; gap: 6px !important; margin: 0 !important; }
                 #custom-circle-sidebar .custom-item { margin: 0 0 8px 0 !important; }
                 #custom-circle-sidebar .custom-item:first-child { position: -webkit-sticky !important; position: sticky !important; top: 8px !important; z-index: 80 !important; }
@@ -984,7 +977,7 @@
                 .custom-slider:before { position: absolute !important; content: "" !important; height: 18px !important; width: 18px !important; left: 3px !important; bottom: 3px !important; background-color: white !important; transition: .4s !important; border-radius: 50% !important; }
                 input:checked + .custom-slider { background-color: #4f46e5 !important; }
 
-                /* User Info and Ban Icon */
+                // user info and ban icon
                 .root-user-info { font-size: 11px; color: #aaa; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px; }
                 .root-ban-icon { cursor: pointer; color: #ff4444; margin-left: 6px; font-weight: bold; opacity: 0.6; transition: opacity 0.2s; display: none; }
                 .root-ban-icon:hover { opacity: 1; }
@@ -992,110 +985,29 @@
                 .chat .log .entry .nickname, .chat .log .entry .name { display: flex; align-items: center; }
                 input:checked + .custom-slider:before { transform: translateX(22px) !important; }
 
-                /* Disconnect Reason Color */
+                // disconnect color
                 .disconnected.page .reason, .reason { color: #ff4444 !important; font-weight: bold !important; }
 
-                /* Banned Chatter Background */
+                // banned background
                 .chatter.banned { background-color: rgba(139, 0, 0, 0.4) !important; border-left: 3px solid #ff4444 !important; }
 
-                /* Banned User Profile Background */
+                // banned profile design
                 .userProfile.pane:has(.banned),
                 .userProfile.pane:has([data-text="banned"]),
                 .userProfile.pane:has(.status.banned) {
-                    background: rgba(100, 0, 0, 0.8) !important;
+                    background-color: rgba(60, 0, 0, 0.8) !important;
+                    border: 2px solid #ff4444 !important;
                 }
-
                 .userProfile.pane:has(.banned) .content,
                 .userProfile.pane:has([data-text="banned"]) .content,
                 .userProfile.pane:has(.status.banned) .content {
                     background: transparent !important;
                 }
-
                 .userProfile.pane:has(.banned) .nickname,
                 .userProfile.pane:has([data-text="banned"]) .nickname,
                 .userProfile.pane:has(.status.banned) .nickname {
                     color: #ff4444 !important;
-                    font-weight: bold !important;
-                    text-shadow: 0 0 5px rgba(0,0,0,0.5) !important;
-                }
-
-                /* Root Chat Badge Visibility Fix */
-                .root-chat-badge {
-                    display: inline-block !important;
-                    visibility: visible !important;
-                    opacity: 1 !important;
-                    width: auto !important;
-                    height: auto !important;
-                    margin-right: 4px !important;
-                }
-
-                /* Absolute Force: Show white circle emoji before self/overlay user names in chat */
-                .chat .log .entry .author.self::before,
-                .chat .log .entry .author.me::before,
-                .messages .entry .author.self::before,
-                .messages .entry .author.me::before {
-                    content: "\u26AA" !important;
-                    margin-right: 4px !important;
-                    font-size: 12px !important;
-                    display: inline-block !important;
-                    vertical-align: middle !important;
-                    color: #fff !important;
-                }
-
-                /* Mobile Responsive Mode */
-                @media (max-width: 767px) {
-                    body, html {
-                        min-width: 0 !important;
-                        width: 100% !important;
-                        overflow-x: hidden !important;
-                    }
-                    .page {
-                        width: 95% !important;
-                        min-width: 0 !important;
-                        margin: 10px auto !important;
-                        padding: 10px !important;
-                    }
-                    /* 2 Rooms per row on mobile */
-                    body.root-custom-theme.is-homepage .rooms > a,
-                    body.root-custom-theme.is-homepage .roomList > a,
-                    body.root-custom-theme.is-homepage .entry {
-                        flex: 0 0 calc(50% - 5px) !important;
-                        width: calc(50% - 5px) !important;
-                        max-width: calc(50% - 5px) !important;
-                        height: 80px !important; /* Smaller height */
-                        padding: 8px 35px 8px 10px !important;
-                        font-size: 12px !important;
-                    }
-                    body.root-custom-theme.is-homepage .entry .code {
-                        width: 40px !important;
-                        font-size: 11px !important;
-                    }
-                    /* Scale down Sidebar buttons */
-                    .custom-circle-btn {
-                        padding: 0.3em !important;
-                        font-size: 14px !important;
-                    }
-                    /* Fix room layout for mobile */
-                    .room {
-                        flex-direction: column !important;
-                    }
-                    .sidebar {
-                        width: 100% !important;
-                        height: auto !important;
-                        order: 2 !important;
-                    }
-                    .main {
-                        width: 100% !important;
-                        order: 1 !important;
-                    }
-                    /* Space-Hyphen Button Mobile Fix */
-                    #root-space-hyphen-btn {
-                        font-size: 14px !important;
-                        height: 32px !important;
-                        line-height: 28px !important;
-                        padding: 0 15px !important;
-                        top: -10px !important; /* Less push up on mobile */
-                    }
+                    text-shadow: 0 0 5px rgba(255, 0, 0, 0.5) !important;
                 }
             `;
             document.head.appendChild(style);
@@ -1132,68 +1044,48 @@
 
                 const btnNormal = document.createElement('button');
                 btnNormal.textContent = 'Normal';
-                btnNormal.className = (localSettings.theme === 'normal') ? 'active' : '';
+                btnNormal.className = localSettings.theme === 'normal' ? 'active' : '';
+                btnNormal.onclick = () => { localSettings.theme = 'normal'; GM_setValue('root_theme', 'normal'); document.body.classList.remove('root-custom-theme'); btnNormal.className = 'active'; btnCustom.className = ''; applyFilter(); };
 
                 const btnCustom = document.createElement('button');
-                btnCustom.textContent = 'Custom';
-                btnCustom.className = (localSettings.theme === 'custom') ? 'active' : '';
-
-                btnNormal.onclick = () => {
-                    GM_setValue('root_theme', 'normal');
-                    localSettings.theme = 'normal';
-                    document.body.classList.remove('root-custom-theme');
-                    btnNormal.classList.add('active');
-                    btnCustom.classList.remove('active');
-                    createUIElements(); // refresh ui
-                    applyFilter(); // reset room
-                };
-
-                btnCustom.onclick = () => {
-                    GM_setValue('root_theme', 'custom');
-                    localSettings.theme = 'custom';
-                    document.body.classList.add('root-custom-theme');
-                    btnCustom.classList.add('active');
-                    btnNormal.classList.remove('active');
-                    createUIElements(); // refresh ui
-                    applyFilter(); // reset room
-                };
+                btnCustom.textContent = 'Root Custom';
+                btnCustom.className = localSettings.theme === 'custom' ? 'active' : '';
+                btnCustom.onclick = () => { localSettings.theme = 'custom'; GM_setValue('root_theme', 'custom'); document.body.classList.add('root-custom-theme'); btnCustom.className = 'active'; btnNormal.className = ''; applyFilter(); };
 
                 switcher.appendChild(btnNormal);
                 switcher.appendChild(btnCustom);
                 rightColumn.prepend(switcher);
             }
 
+            // filter container stuff
             const filterContainer = document.getElementById('root-filter-container');
-            if (localSettings.theme === 'custom') {
-                if (!filterContainer) {
+            if (!filterContainer) {
+                const section = document.querySelector('.publicRooms.section');
+                if (section) {
                     const target = document.querySelector('.publicRooms.section h2') || document.querySelector('.publicRooms.section');
                     if (target) {
                         const container = document.createElement('div');
                         container.id = 'root-filter-container';
-                        container.style.cssText = "display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0; width: 100%;";
-                        BUTTONS.forEach(label => {
+                        container.style.cssText = 'display:flex; flex-wrap:wrap; gap:8px; margin:15px 0; padding:10px; background:rgba(0,0,0,0.05); border-radius:12px;';
+
+                        BUTTONS.forEach(name => {
                             const btn = document.createElement('button');
-                            btn.textContent = label;
-                            btn.className = (label === "All") ? "active" : "";
-                            btn.onclick = (e) => {
-                                e.preventDefault();
+                            btn.textContent = name;
+                            btn.className = (currentFilter === name) ? 'active' : '';
+                            btn.onclick = () => {
+                                currentFilter = name;
                                 container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
                                 btn.classList.add('active');
-                                currentFilter = label;
                                 applyFilter();
                             };
                             container.appendChild(btn);
                         });
-                        if (target.tagName === 'H2') target.after(container);
-                        else target.prepend(container);
+                        target.after(container);
                     }
-                } else {
-                    filterContainer.style.display = 'flex';
                 }
-            } else if (filterContainer) {
-                filterContainer.style.display = 'none';
             }
 
+            // footer stuff
             const footer = document.getElementById('root-footer-credit');
             if (!footer) {
                 const rightColumn = document.querySelector('.home.page .right');
@@ -1215,9 +1107,7 @@
         const addGameButtons = () => {
             if (isHomepage) return;
 
-            // Target the .bottom container
             const bottom = document.querySelector('.bottom');
-
             if (!bottom) {
                 const existingBtn = document.getElementById('root-space-hyphen-btn');
                 if (existingBtn) existingBtn.remove();
@@ -1258,22 +1148,20 @@
                 };
             }
 
-            // -- Ensure button is ONLY in the bottom container --
             if (btn.parentElement && btn.parentElement !== bottom) {
                 btn.remove();
             }
-
 
             if (bottom.firstChild !== btn) {
                 bottom.prepend(btn);
             }
 
             if (localSettings.game) {
-                btn.style.background = '#ff4444'; // red for ON
+                btn.style.background = '#ff4444'; // red when on
                 btn.style.boxShadow = 'inset 0 -4px 0 rgba(0,0,0,0.2)';
                 btn.style.opacity = '1';
             } else {
-                btn.style.background = '#1fb141'; // green for OFF
+                btn.style.background = '#1fb141'; // green when off
                 btn.style.boxShadow = 'inset 0 -4px 0 rgba(0,0,0,0.2)';
                 btn.style.opacity = '1';
             }
@@ -1293,19 +1181,16 @@
                 const nativeActiveTab = nav.querySelector('.active:not(#custom-circle-button)');
 
                 if (isCustomActive) {
-
                     if (nativeActiveTab) {
                         customBtn.classList.remove('active');
                         customPane.hidden = true;
                     } else {
-
                         sidebar.querySelectorAll('.pane:not(#custom-circle-sidebar)').forEach(p => {
                             if (!p.hidden) p.hidden = true;
                         });
                         if (customPane.hidden) customPane.hidden = false;
                     }
                 } else {
-
                     if (!customPane.hidden) customPane.hidden = true;
                 }
             }
@@ -1324,18 +1209,14 @@
                 btn.addEventListener('click', (event) => {
                     event.preventDefault();
                     const isCurrentlyActive = btn.classList.contains('active');
-
-
                     nav.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
                     sidebar.querySelectorAll('.pane').forEach(p => p.hidden = true);
 
                     if (!isCurrentlyActive) {
-
                         btn.classList.add('active');
                         const currentPane = document.getElementById('custom-circle-sidebar');
                         if (currentPane) currentPane.hidden = false;
                     } else {
-
                         const chatTab = nav.querySelector('.chat, a.chat');
                         const chatPane = sidebar.querySelector('.chat.pane');
                         if (chatTab && chatPane) {
