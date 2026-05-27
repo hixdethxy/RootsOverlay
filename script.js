@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      3.9
+// @version      4.0
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -286,7 +286,14 @@
 
         const NewWebSocket = function (url, protocols) {
             const socket = protocols ? new OriginalWebSocket(url, protocols) : new OriginalWebSocket(url);
-            if (url.includes('jklm.fun/socket.io')) win._socket = socket;
+
+            if (url.includes('jklm.fun/socket.io')) {
+                win._socket = socket;
+                try {
+                    const topWin = (typeof unsafeWindow !== 'undefined') ? unsafeWindow.top : window.top;
+                    topWin._rootSocket = socket;
+                } catch (e) { }
+            }
 
             // intercept outgoing messages
             const originalSend = socket.send;
@@ -701,27 +708,34 @@
                         const targetId = parseInt(pId);
 
                         if (confirm(`Do you want to ban ${nickname}?`)) {
-                            const socket = win._socket || (win.miland?.socket) || (win.room?.socket);
+                            const topWin = (typeof unsafeWindow !== 'undefined') ? unsafeWindow.top : window.top;
+                            const socket = win._socket || topWin._rootSocket || (win.miland?.socket) || (win.room?.socket) || (topWin.miland?.socket) || (topWin.room?.socket);
+
                             console.log("Root Overlay: Attempting quick-ban", { nickname, targetId, socketFound: !!socket, isLeader: win._isLeader });
 
-                            if (socket && !isNaN(targetId)) {
-                                const sendFn = socket._originalSend || socket.send;
-
-                                // Leader logic: if target is moderator, remove role first
-                                const isTargetMod = isUserModerator(targetId);
-                                if (win._isLeader && isTargetMod) {
-                                    console.log("Root Overlay: Target is mod, removing role first");
-                                    sendFn.call(socket, `42${++win._lastSocketId}["setModerator",${targetId},false]`);
-                                    sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`);
-                                } else {
-                                    sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`);
-                                }
-
-                                win._bannedMap.set(nickname.toLowerCase(), targetId);
-                                sendRootSystemMessage(`${nickname} has been banned via quick-action.`, '#ff4444');
-                            } else {
-                                sendRootSystemMessage(`Could not find active game connection or PeerID. Check console (F12).`, '#ffaa00');
+                            if (!socket) {
+                                sendRootSystemMessage(`Could not find active game connection. Try refreshing the page.`, '#ffaa00');
+                                return;
                             }
+                            if (isNaN(targetId)) {
+                                sendRootSystemMessage(`Could not resolve PeerID for ${nickname}.`, '#ffaa00');
+                                return;
+                            }
+
+                            const sendFn = socket._originalSend || socket.send;
+
+                            // Leader logic: if target is moderator, remove role first
+                            const isTargetMod = isUserModerator(targetId);
+                            if (win._isLeader && isTargetMod) {
+                                console.log("Root Overlay: Target is mod, removing role first");
+                                sendFn.call(socket, `42${++win._lastSocketId}["setModerator",${targetId},false]`);
+                                sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`);
+                            } else {
+                                sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`);
+                            }
+
+                            win._bannedMap.set(nickname.toLowerCase(), targetId);
+                            sendRootSystemMessage(`${nickname} has been banned via quick-action.`, '#ff4444');
                         }
                     };
                     author.append(banIcon);
