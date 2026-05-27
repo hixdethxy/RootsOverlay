@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      3.2
+// @version      3.3
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -582,11 +582,13 @@
         const hasModRole = !!modBadge;
 
         if (hasModRole) {
+            document.body.classList.add('is-moderator');
             if (win._isMod !== true) {
                 sendRootSystemMessage('You have received the Moderator role.', '#00ffaa');
                 win._isMod = true;
             }
         } else {
+            document.body.classList.remove('is-moderator');
             if (win._isMod === true) {
                 sendRootSystemMessage('You have been removed as a moderator.', '#ffaa00');
                 win._isMod = false;
@@ -600,11 +602,13 @@
         const hasLeaderRole = !!leaderBadge;
 
         if (hasLeaderRole) {
+            document.body.classList.add('is-leader');
             if (win._isLeader !== true) {
                 sendRootSystemMessage('You have been assigned the role of leader.', '#00ffaa');
                 win._isLeader = true;
             }
         } else {
+            document.body.classList.remove('is-leader');
             if (win._isLeader === true) {
                 sendRootSystemMessage('The leader role has been removed from you.', '#ffaa00');
                 win._isLeader = false;
@@ -612,6 +616,49 @@
                 win._isLeader = false;
             }
         }
+    };
+
+    const addOwnerBadge = () => {
+        // ... (existing code)
+    };
+
+    const updateUserInfo = () => {
+        if (isHomepage) return;
+        const profilePane = document.querySelector('.userProfile.pane:not([hidden])');
+        if (!profilePane || profilePane.dataset.userInfoAdded) return;
+
+        const win = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
+        const nicknameEl = profilePane.querySelector('.nickname');
+        if (!nicknameEl) return;
+
+        const nickname = nicknameEl.textContent.trim().toLowerCase();
+        const pId = win._peerMap.get(nickname);
+        if (!pId) return;
+
+        const roomUsers = win.miland?.room?.users || win.room?.users;
+        const user = roomUsers ? roomUsers[pId] : null;
+        if (!user) return;
+
+        const infoBox = document.createElement('div');
+        infoBox.className = 'root-user-info';
+
+        let html = `<div>PeerID: ${pId}</div>`;
+        if (user.auth) {
+            html += `<div>Auth: ${user.auth.provider} (${user.auth.username || 'unknown'})</div>`;
+        } else {
+            html += `<div>Auth: Guest</div>`;
+        }
+
+        if (user.joinTime) {
+            const joinDate = new Date(user.joinTime);
+            html += `<div>Joined: ${joinDate.toLocaleTimeString()}</div>`;
+        }
+
+        infoBox.innerHTML = html;
+        const content = profilePane.querySelector('.content');
+        if (content) content.appendChild(infoBox);
+
+        profilePane.dataset.userInfoAdded = "true";
     };
 
     const initBanFallback = () => {
@@ -644,6 +691,29 @@
                         color: #fff !important;
                     `;
                     author.prepend(badge);
+                }
+
+                // Ban Icon
+                if (pId && !author.querySelector('.root-ban-icon')) {
+                    const banIcon = document.createElement('span');
+                    banIcon.className = 'root-ban-icon';
+                    banIcon.textContent = '\u2715';
+                    banIcon.title = 'Ban User';
+                    banIcon.onclick = (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const nickname = author.textContent.trim();
+                        if (confirm(`Do you want to ban ${nickname}?`)) {
+                            const socket = win._socket || (win.miland?.socket) || (win.room?.socket);
+                            if (socket) {
+                                const nextId = ++win._lastSocketId;
+                                originalSend.call(socket, `42${nextId}["setUserBanned",${pId},true]`);
+                                win._bannedMap.set(nickname.toLowerCase(), parseInt(pId));
+                                sendRootSystemMessage(`${nickname} has been banned via quick-action.`, '#ff4444');
+                            }
+                        }
+                    };
+                    author.append(banIcon);
                 }
             }
 
@@ -847,6 +917,13 @@
                 .custom-slider { position: absolute !important; cursor: pointer !important; top: 0; left: 0; right: 0; bottom: 0; background-color: #444 !important; transition: .4s !important; border-radius: 24px !important; }
                 .custom-slider:before { position: absolute !important; content: "" !important; height: 18px !important; width: 18px !important; left: 3px !important; bottom: 3px !important; background-color: white !important; transition: .4s !important; border-radius: 50% !important; }
                 input:checked + .custom-slider { background-color: #4f46e5 !important; }
+
+                /* User Info and Ban Icon */
+                .root-user-info { font-size: 11px; color: #aaa; margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 4px; }
+                .root-ban-icon { cursor: pointer; color: #ff4444; margin-left: 6px; font-weight: bold; opacity: 0.6; transition: opacity 0.2s; display: none; }
+                .root-ban-icon:hover { opacity: 1; }
+                .is-moderator .root-ban-icon, .is-leader .root-ban-icon { display: inline-block !important; }
+                .chat .log .entry .nickname, .chat .log .entry .name { display: flex; align-items: center; }
                 input:checked + .custom-slider:before { transform: translateX(22px) !important; }
 
                 /* Disconnect Reason Color */
@@ -1294,6 +1371,7 @@
                 initAntiDelete();
                 initBanFallback();
                 checkModStatus();
+                updateUserInfo();
                 addOwnerBadge();
                 updateBannedVisibility();
                 if (isHomepage) applyFilter();
