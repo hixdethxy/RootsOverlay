@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      4.0
+// @version      4.1
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -503,6 +503,48 @@
         win.WebSocket = NewWebSocket;
     };
 
+    const findSocket = () => {
+        const win = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
+        const topWin = win.top;
+
+        // 1. Check local win
+        if (win._socket && win._socket.readyState === WebSocket.OPEN) return win._socket;
+
+        // 2. Check top win
+        try {
+            if (topWin._rootSocket && topWin._rootSocket.readyState === WebSocket.OPEN) return topWin._rootSocket;
+        } catch (e) { }
+
+        // 3. Scan all frames
+        const searchContexts = [document];
+        try {
+            document.querySelectorAll('iframe').forEach(f => {
+                try { if (f.contentDocument) searchContexts.push(f.contentDocument); } catch (e) { }
+            });
+        } catch (e) { }
+
+        for (const ctx of searchContexts) {
+            try {
+                const w = ctx.defaultView || window;
+                const s = w._socket || w.miland?.socket || w.room?.socket || w.miland?.room?.socket;
+                if (s && s.readyState === WebSocket.OPEN) return s;
+            } catch (e) { }
+        }
+
+        // 4. Try top's frames
+        try {
+            for (let i = 0; i < topWin.frames.length; i++) {
+                try {
+                    const w = topWin.frames[i];
+                    const s = w._socket || w.miland?.socket || w.room?.socket || w.miland?.room?.socket;
+                    if (s && s.readyState === WebSocket.OPEN) return s;
+                } catch (e) { }
+            }
+        } catch (e) { }
+
+        return null;
+    };
+
     const findPeerIdByNickname = (input) => {
         const win = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
         const lowerInput = input.toLowerCase();
@@ -708,8 +750,7 @@
                         const targetId = parseInt(pId);
 
                         if (confirm(`Do you want to ban ${nickname}?`)) {
-                            const topWin = (typeof unsafeWindow !== 'undefined') ? unsafeWindow.top : window.top;
-                            const socket = win._socket || topWin._rootSocket || (win.miland?.socket) || (win.room?.socket) || (topWin.miland?.socket) || (topWin.room?.socket);
+                            const socket = findSocket();
 
                             console.log("Root Overlay: Attempting quick-ban", { nickname, targetId, socketFound: !!socket, isLeader: win._isLeader });
 
