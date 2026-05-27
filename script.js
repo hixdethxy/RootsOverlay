@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
 // @match        *://falcon.jklm.fun/*
-// @updateURL    https://raw.githubusercontent.com/hixdethxy/RootsOverlay/blob/main/script.js
-// @downloadURL  https://raw.githubusercontent.com/hixdethxy/RootsOverlay/blob/main/script.js
+// @updateURL    https://raw.githubusercontent.com/hixdethxy/RootsOverlay/main/script.js
+// @downloadURL  https://raw.githubusercontent.com/hixdethxy/RootsOverlay/main/script.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addValueChangeListener
