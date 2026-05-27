@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      3.6
+// @version      3.7
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -442,6 +442,9 @@
                                         const pId = parseInt(obj.peerId);
                                         const nick = obj.nickname.toLowerCase();
                                         win._peerMap.set(nick, pId);
+                                        if (obj.auth && obj.auth.username) {
+                                            win._peerMap.set(obj.auth.username.toLowerCase(), pId);
+                                        }
                                         if (obj.isBanned || obj.banned) win._bannedMap.set(nick, pId);
                                     }
                                     Object.entries(obj).forEach(([key, val]) => {
@@ -450,8 +453,12 @@
                                                 const pId = val.peerId || key;
                                                 if (!isNaN(pId)) {
                                                     const nick = val.nickname.toLowerCase();
-                                                    win._peerMap.set(nick, parseInt(pId));
-                                                    if (val.isBanned || val.banned) win._bannedMap.set(nick, parseInt(pId));
+                                                    const parsedId = parseInt(pId);
+                                                    win._peerMap.set(nick, parsedId);
+                                                    if (val.auth && val.auth.username) {
+                                                        win._peerMap.set(val.auth.username.toLowerCase(), parsedId);
+                                                    }
+                                                    if (val.isBanned || val.banned) win._bannedMap.set(nick, parsedId);
                                                 }
                                             }
                                             scanPayload(val);
