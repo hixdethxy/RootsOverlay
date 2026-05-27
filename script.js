@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      4.6
+// @version      4.7
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -357,7 +357,28 @@
                     // find peerid
                     let peerId = /^\d+$/.test(arg) ? parseInt(arg) : findPeerIdByNickname(arg);
 
-                    const isBannedLocally = win._bannedMap.has(lowerArg) || (peerId && Array.from(win._bannedMap.values()).includes(peerId));
+                    // check if actually banned (map or room object)
+                    const checkIsBanned = (id, nick) => {
+                        if (win._bannedMap.has(nick)) return true;
+                        if (id && Array.from(win._bannedMap.values()).includes(id)) return true;
+
+                        // deep check in room users
+                        const searchContexts = [document];
+                        document.querySelectorAll('iframe').forEach(f => {
+                            try { if (f.contentDocument) searchContexts.push(f.contentDocument); } catch (e) { }
+                        });
+                        for (const ctx of searchContexts) {
+                            const roomUsers = ctx.defaultView?.miland?.room?.users || ctx.defaultView?.room?.users;
+                            if (roomUsers) {
+                                if (id && roomUsers[id] && (roomUsers[id].isBanned || roomUsers[id].banned)) return true;
+                                const found = Object.values(roomUsers).find(u => u.nickname?.toLowerCase() === nick && (u.isBanned || u.banned));
+                                if (found) return true;
+                            }
+                        }
+                        return false;
+                    };
+
+                    const isBannedLocally = checkIsBanned(peerId, lowerArg);
 
                     if (cmd === 'ban') {
                         if (isBannedLocally) {
