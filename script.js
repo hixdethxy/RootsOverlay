@@ -6,6 +6,8 @@
 // @author       Root
 // @match        *://*.jklm.fun/*
 // @match        *://falcon.jklm.fun/*
+// @updateURL    https://raw.githubusercontent.com/hixdethxy/RootsOverlay/repo/main/script.js
+// @downloadURL  https://raw.githubusercontent.com/hixdethxy/RootsOverlay/repo/main/script.js
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @grant        GM_addValueChangeListener
