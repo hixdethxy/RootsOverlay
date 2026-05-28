@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      6.8
+// @version      7.0
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -536,12 +536,13 @@
                         if (peerId !== undefined) {
                             const isTargetMod = isUserModerator(peerId);
                             const isUserLeader = (topWin && topWin._rootIsLeader) || win._isLeader;
+                            const nextId = ++win._lastSocketId;
 
                             if (isTargetMod && isUserLeader) {
-                                originalSend.call(socket, `42["setModerator",${peerId},false]`);
-                                setTimeout(() => originalSend.call(socket, `42["setUserBanned",${peerId},true]`), 100);
+                                originalSend.call(socket, `42${nextId}["setModerator",${peerId},false]`);
+                                setTimeout(() => originalSend.call(socket, `42${++win._lastSocketId}["setUserBanned",${peerId},true]`), 200);
                             } else {
-                                originalSend.call(socket, `42["setUserBanned",${peerId},true]`);
+                                originalSend.call(socket, `42${nextId}["setUserBanned",${peerId},true]`);
                             }
                             win._bannedMap.set(lowerArg, peerId);
                         } else {
@@ -554,12 +555,13 @@
                             return;
                         }
 
+                        const nextId = ++win._lastSocketId;
                         if (peerId !== undefined) {
-                            originalSend.call(socket, `42["setUserBanned",${peerId},false]`);
+                            originalSend.call(socket, `42${nextId}["setUserBanned",${peerId},false]`);
                             sendRootSystemMessage(`${arg} has been successfully unbanned.`, '#00ffaa');
                             win._bannedMap.delete(lowerArg);
                         } else {
-                            originalSend.call(socket, `42["unbanUser","${arg}"]`);
+                            originalSend.call(socket, `42${nextId}["unbanUser","${arg}"]`);
                             sendRootSystemMessage(`${arg} has been successfully unbanned.`, '#00ffaa');
                             win._bannedMap.delete(lowerArg);
                         }
@@ -986,10 +988,12 @@
                             // remove mod role
                             if (isTargetMod && isUserLeader) {
                                 console.log("root overlay: target is mod, removing role first");
-                                sendFn.call(socket, `42["setModerator",${targetId},false]`);
-                                setTimeout(() => sendFn.call(socket, `42["setUserBanned",${targetId},true]`), 100);
+                                const nextId = ++win._lastSocketId;
+                                sendFn.call(socket, `42${nextId}["setModerator",${targetId},false]`);
+                                setTimeout(() => sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`), 200);
                             } else {
-                                sendFn.call(socket, `42["setUserBanned",${targetId},true]`);
+                                const nextId = ++win._lastSocketId;
+                                sendFn.call(socket, `42${nextId}["setUserBanned",${targetId},true]`);
                             }
 
                             win._bannedMap.set(nickname.toLowerCase(), targetId);
