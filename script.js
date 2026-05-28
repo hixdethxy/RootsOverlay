@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      7.0
+// @version      7.1
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -988,12 +988,15 @@
                             // remove mod role
                             if (isTargetMod && isUserLeader) {
                                 console.log("root overlay: target is mod, removing role first");
-                                const nextId = ++win._lastSocketId;
-                                sendFn.call(socket, `42${nextId}["setModerator",${targetId},false]`);
-                                setTimeout(() => sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`), 200);
+                                const nextId1 = ++win._lastSocketId;
+                                const nextId2 = ++win._lastSocketId;
+                                const socketToSend = socket._socket || socket;
+                                (socketToSend.send || socketToSend._originalSend).call(socketToSend, `42${nextId1}["setModerator",${targetId},false]`);
+                                setTimeout(() => (socketToSend.send || socketToSend._originalSend).call(socketToSend, `42${nextId2}["setUserBanned",${targetId},true]`), 250);
                             } else {
                                 const nextId = ++win._lastSocketId;
-                                sendFn.call(socket, `42${nextId}["setUserBanned",${targetId},true]`);
+                                const socketToSend = socket._socket || socket;
+                                (socketToSend.send || socketToSend._originalSend).call(socketToSend, `42${nextId}["setUserBanned",${targetId},true]`);
                             }
 
                             win._bannedMap.set(nickname.toLowerCase(), targetId);
