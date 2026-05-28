@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      7.7
+// @version      7.8
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -24,7 +24,6 @@
         game: GM_getValue('root_space_to_hyphen_game', false),
         bannedMessages: GM_getValue('root_show_banned_messages', false),
         theme: GM_getValue('root_theme', 'custom'), // custom / normal
-        afkMode: GM_getValue('root_afk_mode', false)
     };
 
     const updateBannedVisibility = () => {
@@ -67,19 +66,11 @@
         if (v === 'custom') document.body.classList.add('root-custom-theme');
         else document.body.classList.remove('root-custom-theme');
     });
-    GM_addValueChangeListener('root_afk_mode', (n, o, v) => {
-        localSettings.afkMode = v;
-        const msg = { type: 'ROOT_SETTINGS_UPDATE', settings: localSettings };
-        document.querySelectorAll('iframe').forEach(f => f.contentWindow.postMessage(msg, '*'));
-    });
 
     window.addEventListener('message', (e) => {
         if (e.data && e.data.type === 'ROOT_SETTINGS_UPDATE') {
             localSettings = e.data.settings;
             updateBannedVisibility();
-        }
-        if (e.data && e.data.type === 'ROOT_TAKE_SCREENSHOT') {
-            takeScreenshot(true); // true means it was requested via message
         }
     });
 
@@ -929,34 +920,6 @@
                 const isSelf = author.classList.contains('self') || author.classList.contains('me') || !!author.querySelector('.self, .me');
                 const isKnownOverlay = pId && win._overlayUsers?.has(parseInt(pId));
 
-                // AFK Mode logic
-                if (localSettings.afkMode && !isSelf && currentTextEl) {
-                    const myNick = (
-                        document.querySelector('.top .nickname')?.textContent || 
-                        win.miland?.nickname || 
-                        win.room?.nickname || 
-                        win.miland?.room?.nickname ||
-                        (typeof win.room?.users === 'object' && win.room.selfPeerId ? win.room.users[win.room.selfPeerId]?.nickname : '') ||
-                        ''
-                    ).toLowerCase();
-                    
-                    if (myNick && currentTextEl.textContent.toLowerCase().includes(myNick)) {
-                        const now = Date.now();
-                        if (!win._lastAfkReply || (now - win._lastAfkReply > 30000)) { // 30s cooldown
-                            win._lastAfkReply = now;
-                            const socket = findSocket();
-                            if (socket && socket.readyState === WebSocket.OPEN) {
-                                setTimeout(() => {
-                                    socket.send(`42["chat", "[AFK] I am currently away from keyboard. I'll be back soon!"]`);
-                                    sendRootSystemMessage("AFK reply sent.", "#00ffaa");
-                                }, 1000);
-                            } else {
-                                console.log("AFK trigger detected but no socket found.");
-                            }
-                        }
-                    }
-                }
-
                 if ((isSelf || isKnownOverlay) && !author.querySelector('.root-chat-badge')) {
                     const badge = document.createElement('span');
                     badge.className = 'service root-chat-badge';
@@ -1096,50 +1059,6 @@
 
     hookWebSockets();
     updateBannedVisibility();
-
-    const takeScreenshot = (fromMessage = false) => {
-        const log = (msg) => sendRootSystemMessage(msg, '#ffaa00');
-
-        if (!fromMessage) {
-            log("Preparing screenshot...");
-            // broadcast to all iframes
-            const msg = { type: 'ROOT_TAKE_SCREENSHOT' };
-            document.querySelectorAll('iframe').forEach(f => {
-                try { f.contentWindow.postMessage(msg, '*'); } catch(e) {}
-            });
-        }
-
-        // try to find canvas in current frame
-        const canvas = document.querySelector('canvas');
-        if (canvas) {
-            try {
-                const dataUrl = canvas.toDataURL("image/png");
-                const link = document.createElement('a');
-                link.download = `jklm-screenshot-${Date.now()}.png`;
-                link.href = dataUrl;
-                link.click();
-                log("Screenshot saved from frame!");
-                return true;
-            } catch (e) {
-                if (!fromMessage) log("Failed to capture canvas (CORS).");
-            }
-        }
-
-        if (!fromMessage && !document.querySelector('canvas')) {
-            // only show this in the main frame if no canvas was found locally or in any iframe yet
-            // we'll wait a bit to see if any frame reports success
-            setTimeout(() => {
-                const searchContexts = [document];
-                document.querySelectorAll('iframe').forEach(f => {
-                    try { if (f.contentDocument) searchContexts.push(f.contentDocument); } catch (e) { }
-                });
-                let foundAny = false;
-                for(const ctx of searchContexts) { if(ctx.querySelector('canvas')) foundAny = true; }
-                if(!foundAny) log("No game canvas found. Capturing page is limited in browsers.");
-            }, 1000);
-        }
-        return false;
-    };
 
     const broadcastSettings = () => {
         const msg = { type: 'ROOT_SETTINGS_UPDATE', settings: localSettings };
@@ -1553,24 +1472,6 @@
                                 </div>
                             </div>
 
-                            <div id="util-toggle-header" style="display: flex; align-items: center; background-color: rgba(255,255,255,0.06); padding: 8px 12px; border-radius: 6px; width: 100%; font-weight: bold; color: #aaa; cursor: pointer; transition: background 0.2s; font-size: 13px; box-sizing: border-box; margin-top: 10px;">
-                                \uD83D\uDEE0\uFE0F Utilities
-                            </div>
-
-                            <div id="util-options-field" style="display: none; flex-direction: column; gap: 12px; padding-left: 10px; width: 100%; box-sizing: border-box; margin-top: 10px;">
-                                <div class="custom-option-row">
-                                    <span style="color: #ccc; font-size: 14px;">AFK Mode</span>
-                                    <label class="custom-switch">
-                                        <input type="checkbox" id="t-afk">
-                                        <span class="custom-slider"></span>
-                                    </label>
-                                </div>
-                                <div class="custom-option-row">
-                                    <span style="color: #ccc; font-size: 14px;">Screenshot Game</span>
-                                    <button id="btn-screenshot" style="background: #4f46e5; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-weight: bold; font-size: 12px;">Capture</button>
-                                </div>
-                            </div>
-
                             <div style="margin-top: 20px; padding: 10px; border-top: 1px solid rgba(255,255,255,0.1);">
                                 <div style="font-weight: bold; color: #fff; font-size: 13px; margin-bottom: 8px;">Suggestion / Bug :</div>
                                    <div style="display: flex; flex-direction: column; gap: 5px;">
@@ -1587,22 +1488,14 @@
                 const tGame = newPane.querySelector('#t-game');
                 const tChat = newPane.querySelector('#t-chat');
                 const tBanned = newPane.querySelector('#t-banned');
-                const tAfk = newPane.querySelector('#t-afk');
-                const btnScreenshot = newPane.querySelector('#btn-screenshot');
 
                 try { if (tGame) { tGame.checked = !!GM_getValue('root_space_to_hyphen_game', false); } } catch (e) { }
                 try { if (tChat) { tChat.checked = !!GM_getValue('root_space_to_hyphen_chat', false); } } catch (e) { }
                 try { if (tBanned) { tBanned.checked = !!GM_getValue('root_show_banned_messages', false); } } catch (e) { }
-                try { if (tAfk) { tAfk.checked = !!GM_getValue('root_afk_mode', false); } } catch (e) { }
 
                 if (tGame) tGame.addEventListener('change', (ev) => { const v = !!ev.target.checked; GM_setValue('root_space_to_hyphen_game', v); localSettings.game = v; broadcastSettings(); });
                 if (tChat) tChat.addEventListener('change', (ev) => { const v = !!ev.target.checked; GM_setValue('root_space_to_hyphen_chat', v); localSettings.chat = v; broadcastSettings(); });
                 if (tBanned) tBanned.addEventListener('change', (ev) => { const v = !!ev.target.checked; GM_setValue('root_show_banned_messages', v); localSettings.bannedMessages = v; broadcastSettings(); });
-                if (tAfk) tAfk.addEventListener('change', (ev) => { const v = !!ev.target.checked; GM_setValue('root_afk_mode', v); localSettings.afkMode = v; broadcastSettings(); });
-
-                if (btnScreenshot) btnScreenshot.addEventListener('click', () => {
-                    takeScreenshot();
-                });
 
                 const kbToggle = newPane.querySelector('#kb-toggle-header');
                 const kbField = newPane.querySelector('#kb-options-field');
@@ -1623,17 +1516,6 @@
                     modToggle.addEventListener('click', () => {
                         const isOpen = modField.style.display !== 'none';
                         modField.style.display = isOpen ? 'none' : 'flex';
-                    });
-                }
-
-                const utilToggle = newPane.querySelector('#util-toggle-header');
-                const utilField = newPane.querySelector('#util-options-field');
-                if (utilToggle && utilField) {
-                    utilToggle.addEventListener('mouseenter', () => { utilToggle.style.backgroundColor = 'rgba(255,255,255,0.1)'; });
-                    utilToggle.addEventListener('mouseleave', () => { utilToggle.style.backgroundColor = 'rgba(255,255,255,0.06)'; });
-                    utilToggle.addEventListener('click', () => {
-                        const isOpen = utilField.style.display !== 'none';
-                        utilField.style.display = isOpen ? 'none' : 'flex';
                     });
                 }
             }
