@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      7.1
+// @version      7.2
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -945,62 +945,17 @@
                     banIcon.onclick = (e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        
                         const nickname = author.textContent.trim();
-                        const targetId = parseInt(pId);
+                        const socket = findSocket();
 
-                        if (confirm(`Do you want to ban ${nickname}?`)) {
-                            const socket = findSocket();
-                            let topWin;
-                            try { topWin = win.top; } catch (e) { topWin = win; }
-
-                            const isUserMod = (topWin && topWin._rootIsMod) || win._isMod;
-                            const isUserLeader = (topWin && topWin._rootIsLeader) || win._isLeader;
-
-                            console.log("root overlay: attempting quick-ban", { nickname, targetId, socketFound: !!socket, isLeader: isUserLeader });
-
-                            if (!socket) {
-                                sendRootSystemMessage(`Could not find active game connection. Try refreshing the page.`, '#ffaa00');
-                                return;
-                            }
-                            if (isNaN(targetId)) {
-                                sendRootSystemMessage(`Could not resolve PeerID for ${nickname}.`, '#ffaa00');
-                                return;
-                            }
-
-                            const sendFn = socket._originalSend || socket.send;
-
-                            // check target role
-                            const isTargetMod = isUserModerator(targetId);
-                            const isTargetLeader = isUserLeader(targetId);
-
-                            // check mod permissions
-                            if (isUserMod && !isUserLeader) {
-                                if (isTargetLeader) {
-                                    sendRootSystemMessage("You can't ban the leader", '#ff4444');
-                                    return;
-                                }
-                                if (isTargetMod) {
-                                    sendRootSystemMessage("You can't ban a moderator if you're a moderator yourself..", '#ff4444');
-                                    return;
-                                }
-                            }
-
-                            // remove mod role
-                            if (isTargetMod && isUserLeader) {
-                                console.log("root overlay: target is mod, removing role first");
-                                const nextId1 = ++win._lastSocketId;
-                                const nextId2 = ++win._lastSocketId;
-                                const socketToSend = socket._socket || socket;
-                                (socketToSend.send || socketToSend._originalSend).call(socketToSend, `42${nextId1}["setModerator",${targetId},false]`);
-                                setTimeout(() => (socketToSend.send || socketToSend._originalSend).call(socketToSend, `42${nextId2}["setUserBanned",${targetId},true]`), 250);
-                            } else {
-                                const nextId = ++win._lastSocketId;
-                                const socketToSend = socket._socket || socket;
-                                (socketToSend.send || socketToSend._originalSend).call(socketToSend, `42${nextId}["setUserBanned",${targetId},true]`);
-                            }
-
-                            win._bannedMap.set(nickname.toLowerCase(), targetId);
+                        if (!socket) {
+                            console.error("root overlay: no socket found for ban");
+                            return;
                         }
+
+                        // trigger the .ban command logic by sending it to the hooked socket
+                        socket.send(`.ban ${nickname}`);
                     };
                     author.append(banIcon);
                 }
