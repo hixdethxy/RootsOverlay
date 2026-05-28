@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      6.7
+// @version      6.8
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -411,6 +411,7 @@
         // initialize local maps
         win._peerMap = new Map();
         win._bannedMap = new Map();
+        win._overlayUsers = new Set();
         win._lastSocketId = 1000;
 
         const OriginalWebSocket = win.WebSocket;
@@ -498,7 +499,7 @@
                     }
 
                     const lowerArg = arg.toLowerCase();
-                    const nextId = ++win._lastSocketId;
+                    const isBan = cmd === 'ban';
 
                     // get peer id
                     let peerId = /^\d+$/.test(arg) ? parseInt(arg) : findPeerIdByNickname(arg);
@@ -526,7 +527,7 @@
 
                     const isBannedLocally = checkIsBanned(peerId, lowerArg);
 
-                    if (cmd === 'ban') {
+                    if (isBan) {
                         if (isBannedLocally) {
                             sendRootSystemMessage(`${arg} has already been banned.`, '#ffaa00');
                             return;
@@ -534,47 +535,31 @@
 
                         if (peerId !== undefined) {
                             const isTargetMod = isUserModerator(peerId);
-                            const isTargetLeader = isUserLeader(peerId);
-                            const isUserMod = (topWin && topWin._rootIsMod) || win._isMod;
                             const isUserLeader = (topWin && topWin._rootIsLeader) || win._isLeader;
 
-                            // check mod permissions
-                            if (isUserMod && !isUserLeader) {
-                                if (isTargetLeader) {
-                                    sendRootSystemMessage("You can't ban the leader", '#ff4444');
-                                    return;
-                                }
-                                if (isTargetMod) {
-                                    sendRootSystemMessage("You can't ban a moderator if you're a moderator yourself..", '#ff4444');
-                                    return;
-                                }
-                            }
-
-                            if (isUserLeader && isTargetMod) {
-                                originalSend.call(socket, `42${++win._lastSocketId}["setModerator",${peerId},false]`);
-                                originalSend.call(socket, `42${++win._lastSocketId}["setUserBanned",${peerId},true]`);
+                            if (isTargetMod && isUserLeader) {
+                                originalSend.call(socket, `42["setModerator",${peerId},false]`);
+                                setTimeout(() => originalSend.call(socket, `42["setUserBanned",${peerId},true]`), 100);
                             } else {
-                                originalSend.call(socket, `42${nextId}["setUserBanned",${peerId},true]`);
+                                originalSend.call(socket, `42["setUserBanned",${peerId},true]`);
                             }
                             win._bannedMap.set(lowerArg, peerId);
                         } else {
                             sendRootSystemMessage(`User "${arg}" not found. Try using their PeerID instead.`, '#ffaa00');
                         }
-                    } else if (cmd === 'unban') {
+                    } else {
+                        // unban
                         if (!isBannedLocally) {
                             sendRootSystemMessage(`${arg} is not banned.`, '#ffaa00');
                             return;
                         }
 
                         if (peerId !== undefined) {
-                            originalSend.call(socket, `42${nextId}["setUserBanned",${peerId},false]`);
+                            originalSend.call(socket, `42["setUserBanned",${peerId},false]`);
                             sendRootSystemMessage(`${arg} has been successfully unbanned.`, '#00ffaa');
                             win._bannedMap.delete(lowerArg);
-                            for (let [nick, id] of win._bannedMap.entries()) {
-                                if (id === peerId) win._bannedMap.delete(nick);
-                            }
                         } else {
-                            originalSend.call(socket, `42${nextId}["unbanUser","${arg}"]`);
+                            originalSend.call(socket, `42["unbanUser","${arg}"]`);
                             sendRootSystemMessage(`${arg} has been successfully unbanned.`, '#00ffaa');
                             win._bannedMap.delete(lowerArg);
                         }
@@ -923,6 +908,8 @@
         const processNode = (node) => {
             if (node.nodeType !== 1) return;
 
+            const currentTextEl = node.querySelector('.text');
+
             // handle badge logic
             const author = node.querySelector('.author') || (node.classList.contains('author') ? node : null);
             if (author) {
@@ -997,12 +984,12 @@
                             }
 
                             // remove mod role
-                            if (isUserLeader && isTargetMod) {
+                            if (isTargetMod && isUserLeader) {
                                 console.log("root overlay: target is mod, removing role first");
-                                sendFn.call(socket, `42${++win._lastSocketId}["setModerator",${targetId},false]`);
-                                sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`);
+                                sendFn.call(socket, `42["setModerator",${targetId},false]`);
+                                setTimeout(() => sendFn.call(socket, `42["setUserBanned",${targetId},true]`), 100);
                             } else {
-                                sendFn.call(socket, `42${++win._lastSocketId}["setUserBanned",${targetId},true]`);
+                                sendFn.call(socket, `42["setUserBanned",${targetId},true]`);
                             }
 
                             win._bannedMap.set(nickname.toLowerCase(), targetId);
