@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      7.6
+// @version      7.7
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -67,12 +67,19 @@
         if (v === 'custom') document.body.classList.add('root-custom-theme');
         else document.body.classList.remove('root-custom-theme');
     });
-    GM_addValueChangeListener('root_afk_mode', (n, o, v) => localSettings.afkMode = v);
+    GM_addValueChangeListener('root_afk_mode', (n, o, v) => {
+        localSettings.afkMode = v;
+        const msg = { type: 'ROOT_SETTINGS_UPDATE', settings: localSettings };
+        document.querySelectorAll('iframe').forEach(f => f.contentWindow.postMessage(msg, '*'));
+    });
 
     window.addEventListener('message', (e) => {
         if (e.data && e.data.type === 'ROOT_SETTINGS_UPDATE') {
             localSettings = e.data.settings;
             updateBannedVisibility();
+        }
+        if (e.data && e.data.type === 'ROOT_TAKE_SCREENSHOT') {
+            takeScreenshot(true); // true means it was requested via message
         }
     });
 
@@ -924,7 +931,15 @@
 
                 // AFK Mode logic
                 if (localSettings.afkMode && !isSelf && currentTextEl) {
-                    const myNick = (document.querySelector('.top .nickname')?.textContent || win.miland?.nickname || win.room?.nickname || '').toLowerCase();
+                    const myNick = (
+                        document.querySelector('.top .nickname')?.textContent || 
+                        win.miland?.nickname || 
+                        win.room?.nickname || 
+                        win.miland?.room?.nickname ||
+                        (typeof win.room?.users === 'object' && win.room.selfPeerId ? win.room.users[win.room.selfPeerId]?.nickname : '') ||
+                        ''
+                    ).toLowerCase();
+                    
                     if (myNick && currentTextEl.textContent.toLowerCase().includes(myNick)) {
                         const now = Date.now();
                         if (!win._lastAfkReply || (now - win._lastAfkReply > 30000)) { // 30s cooldown
@@ -933,7 +948,10 @@
                             if (socket && socket.readyState === WebSocket.OPEN) {
                                 setTimeout(() => {
                                     socket.send(`42["chat", "[AFK] I am currently away from keyboard. I'll be back soon!"]`);
+                                    sendRootSystemMessage("AFK reply sent.", "#00ffaa");
                                 }, 1000);
+                            } else {
+                                console.log("AFK trigger detected but no socket found.");
                             }
                         }
                     }
@@ -1079,47 +1097,58 @@
     hookWebSockets();
     updateBannedVisibility();
 
-    // build ui elements
+    const takeScreenshot = (fromMessage = false) => {
+        const log = (msg) => sendRootSystemMessage(msg, '#ffaa00');
+
+        if (!fromMessage) {
+            log("Preparing screenshot...");
+            // broadcast to all iframes
+            const msg = { type: 'ROOT_TAKE_SCREENSHOT' };
+            document.querySelectorAll('iframe').forEach(f => {
+                try { f.contentWindow.postMessage(msg, '*'); } catch(e) {}
+            });
+        }
+
+        // try to find canvas in current frame
+        const canvas = document.querySelector('canvas');
+        if (canvas) {
+            try {
+                const dataUrl = canvas.toDataURL("image/png");
+                const link = document.createElement('a');
+                link.download = `jklm-screenshot-${Date.now()}.png`;
+                link.href = dataUrl;
+                link.click();
+                log("Screenshot saved from frame!");
+                return true;
+            } catch (e) {
+                if (!fromMessage) log("Failed to capture canvas (CORS).");
+            }
+        }
+
+        if (!fromMessage && !document.querySelector('canvas')) {
+            // only show this in the main frame if no canvas was found locally or in any iframe yet
+            // we'll wait a bit to see if any frame reports success
+            setTimeout(() => {
+                const searchContexts = [document];
+                document.querySelectorAll('iframe').forEach(f => {
+                    try { if (f.contentDocument) searchContexts.push(f.contentDocument); } catch (e) { }
+                });
+                let foundAny = false;
+                for(const ctx of searchContexts) { if(ctx.querySelector('canvas')) foundAny = true; }
+                if(!foundAny) log("No game canvas found. Capturing page is limited in browsers.");
+            }, 1000);
+        }
+        return false;
+    };
+
+    const broadcastSettings = () => {
+        const msg = { type: 'ROOT_SETTINGS_UPDATE', settings: localSettings };
+        document.querySelectorAll('iframe').forEach(f => f.contentWindow.postMessage(msg, '*'));
+    };
+
     if (isJklm) {
-        const broadcastSettings = () => {
-            const msg = { type: 'ROOT_SETTINGS_UPDATE', settings: localSettings };
-            document.querySelectorAll('iframe').forEach(f => f.contentWindow.postMessage(msg, '*'));
-        };
         GM_addValueChangeListener('root_space_to_hyphen_chat', broadcastSettings);
         GM_addValueChangeListener('root_space_to_hyphen_game', broadcastSettings);
-
-        const takeScreenshot = () => {
-            const gameContainer = document.querySelector('.game') || document.body;
-            const log = (msg) => sendRootSystemMessage(msg, '#ffaa00');
-
-            log("Preparing screenshot...");
-
-            // search for canvas in iframes (best effort)
-            let targetCanvas = null;
-            document.querySelectorAll('iframe').forEach(f => {
-                try {
-                    const canvas = f.contentDocument?.querySelector('canvas');
-                    if (canvas) targetCanvas = canvas;
-                } catch (e) {}
-            });
-
-            if (!targetCanvas) targetCanvas = document.querySelector('canvas');
-
-            if (targetCanvas) {
-                try {
-                    const dataUrl = targetCanvas.toDataURL("image/png");
-                    const link = document.createElement('a');
-                    link.download = `jklm-screenshot-${Date.now()}.png`;
-                    link.href = dataUrl;
-                    link.click();
-                    log("Screenshot saved!");
-                } catch (e) {
-                    log("Failed to capture canvas (CORS). Try full page screenshot instead.");
-                }
-            } else {
-                log("No game canvas found. Capturing page is limited in browsers.");
-            }
-        };
 
         const initUI = () => {
             // handle mobile viewport
