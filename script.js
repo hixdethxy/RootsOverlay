@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      7.3
+// @version      7.5
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -946,7 +946,17 @@
                         e.preventDefault();
                         e.stopPropagation();
                         
-                        const nickname = author.textContent.trim();
+                        // get nickname without the 'X' button text
+                        let nickname = "";
+                        const nicknameEl = author.querySelector('.nickname') || author;
+                        nicknameEl.childNodes.forEach(node => {
+                            if (node.nodeType === 3) nickname += node.textContent;
+                            else if (node.nodeType === 1 && !node.classList.contains('root-ban-icon') && !node.classList.contains('service')) {
+                                nickname += node.textContent;
+                            }
+                        });
+                        nickname = nickname.trim();
+
                         const socket = findSocket();
 
                         if (!socket) {
