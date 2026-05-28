@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Roots Overlay
 // @namespace    http://tampermonkey.net/
-// @version      7.2
+// @version      7.3
 // @description  root's overlay
 // @author       Root
 // @match        *://*.jklm.fun/*
@@ -955,7 +955,7 @@
                         }
 
                         // trigger the .ban command logic by sending it to the hooked socket
-                        socket.send(`.ban ${nickname}`);
+                        socket.send(`42["chat", ".ban ${nickname}"]`);
                     };
                     author.append(banIcon);
                 }
